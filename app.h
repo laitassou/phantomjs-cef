@@ -15,7 +15,7 @@ class PhantomJSApp : public CefApp,
                      public CefRenderProcessHandler
 {
  public:
-  PhantomJSApp();
+  PhantomJSApp(bool dis, unsigned long width, unsigned long height);
   ~PhantomJSApp();
 
   // CefApp methods:
@@ -48,6 +48,9 @@ class PhantomJSApp : public CefApp,
   CefRefPtr<CefMessageRouterRendererSide> m_messageRouter;
   // Include the default reference counting implementation.
   IMPLEMENT_REFCOUNTING(PhantomJSApp);
+  bool disableOnScreenmode;
+  unsigned long width;
+  unsigned long height;
 };
 
 #endif  // CEF_TESTS_PHANTOMJS_APP_H_

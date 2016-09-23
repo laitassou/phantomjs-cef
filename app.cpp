@@ -21,10 +21,13 @@
 #include "include/wrapper/cef_helpers.h"
 #include "include/wrapper/cef_closure_task.h"
 
-PhantomJSApp::PhantomJSApp()
+PhantomJSApp::PhantomJSApp (bool dis, unsigned long width, unsigned long height)
   : m_printHandler(new PrintHandler)
   , m_messageRouter(CefMessageRouterRendererSide::Create(PhantomJSHandler::messageRouterConfig()))
 {
+    disableOnScreenmode = dis;
+    this->width = width;
+    this->height = height;
 }
 
 PhantomJSApp::~PhantomJSApp()
@@ -44,10 +47,10 @@ void PhantomJSApp::OnContextInitialized()
   CEF_REQUIRE_UI_THREAD();
 
   // PhantomJSHandler implements browser-level callbacks.
-  CefRefPtr<PhantomJSHandler> handler(new PhantomJSHandler());
+  CefRefPtr<PhantomJSHandler> handler(new PhantomJSHandler(disableOnScreenmode, width, height));
 
   // Create the first browser window with empty content to get our hands on a frame
-  auto browser = handler->createBrowser("about:blank", true);
+  auto browser = handler->createBrowser("about:blank",disableOnScreenmode, true);
   auto frame = browser->GetMainFrame();
 
   auto command_line = CefCommandLine::GetGlobalCommandLine();

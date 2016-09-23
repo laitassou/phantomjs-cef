@@ -11,7 +11,7 @@
 #include <QtPlugin>
 
 #include "app.h"
-
+#include <X11/Xlib.h>
 #include "include/base/cef_logging.h"
 
 #if OS_WIN
@@ -33,6 +33,26 @@ Q_IMPORT_PLUGIN (QMinimalIntegrationPlugin);
 
 #include <iostream>
 
+
+namespace {
+
+    int XErrorHandlerImpl(Display *display, XErrorEvent *event) {
+      LOG(WARNING)
+      << "X error received: "
+      << "type " << event->type << ", "
+      << "serial " << event->serial << ", "
+      << "error_code " << static_cast<int>(event->error_code) << ", "
+      << "request_code " << static_cast<int>(event->request_code) << ", "
+      << "minor_code " << static_cast<int>(event->minor_code);
+      return 0;
+    }
+
+    int XIOErrorHandlerImpl(Display *display) {
+      return 0;
+    }
+
+}  // namespace
+
 int main(int argc, char** argv)
 {
   void* sandbox_info = NULL;
@@ -53,9 +73,36 @@ int main(int argc, char** argv)
   CefMainArgs main_args(argc, argv);
 #endif
 
+
+  bool disOnScreenMode = true;
+  unsigned long inputWidth = 1000;;
+  unsigned long inputHeight = 1920; 
+
+  
+  if (argc < 3) {
+    std::cerr << "Missing script parameter.\n";
+    return 1;
+  }else if(argc == 3){
+    disOnScreenMode =( atoi(argv[2]) ==1 ) ? true:false;
+  }else{
+    disOnScreenMode =( atoi(argv[2]) ==1 ) ? true:false;
+    inputWidth = atoi(argv[3]);
+    inputHeight = atoi(argv[4]); 
+  }
+
+  // Specify CEF global settings here.
+  CefSettings settings;
+  // TODO: make this configurable like previously in phantomjs
+  settings.ignore_certificate_errors = true;
+  settings.remote_debugging_port = 12345;
+  settings.windowless_rendering_enabled = true; //disOnScreenMode; //atoi(argv[2]);
+  // NOTE: accessing the file system requires us to disable sandboxing
+  settings.no_sandbox = true;
+
+
   // PhantomJSApp implements application-level callbacks. It will create the first
   // browser instance in OnContextInitialized() after CEF has initialized.
-  CefRefPtr<PhantomJSApp> app(new PhantomJSApp);
+  CefRefPtr<PhantomJSApp> app(new PhantomJSApp(disOnScreenMode,inputWidth,inputHeight));
 
   // CEF applications have multiple sub-processes (render, plugin, GPU, etc)
   // that share the same executable. This function checks the command-line and,
@@ -66,24 +113,12 @@ int main(int argc, char** argv)
     return exit_code;
   }
 
-  if (argc < 2) {
-    std::cerr << "Missing script parameter.\n";
-    return 1;
-  }
 
   // NOTE: we do not run the Qt eventloop, so don't use signals/slots or similar
   // we mostly integrate Qt for its painting API and the resource system
   QGuiApplication qtApp(argc, argv);
   Q_UNUSED(qtApp);
 
-  // Specify CEF global settings here.
-  CefSettings settings;
-  // TODO: make this configurable like previously in phantomjs
-  settings.ignore_certificate_errors = true;
-  settings.remote_debugging_port = 12345;
-  settings.windowless_rendering_enabled = true;
-  // NOTE: accessing the file system requires us to disable sandboxing
-  settings.no_sandbox = true;
 
   const auto cachePath = QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
 #if OS_WIN
@@ -94,6 +129,8 @@ int main(int argc, char** argv)
 #endif
 
   //   settings.log_severity = LOGSEVERITY_VERBOSE;
+  XSetErrorHandler(XErrorHandlerImpl);
+  XSetIOErrorHandler(XIOErrorHandlerImpl);
 
   // Initialize CEF for the browser process.
   CefInitialize(main_args, settings, app, NULL);

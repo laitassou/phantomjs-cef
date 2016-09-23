@@ -23,13 +23,13 @@ class PhantomJSHandler : public CefClient,
                       public CefDownloadHandler
 {
  public:
-  PhantomJSHandler();
+  PhantomJSHandler(bool disOSM, unsigned long width, unsigned long height);
   ~PhantomJSHandler();
 
   // Provide access to the single global instance of this object.
   static CefMessageRouterConfig messageRouterConfig();
 
-  CefRefPtr<CefBrowser> createBrowser(const CefString& url, bool isPhantomMain,
+  CefRefPtr<CefBrowser> createBrowser(const CefString& url,bool disOSM, bool isPhantomMain,
                                       const QJsonObject& config = {});
 
   // CefClient methods:
@@ -180,6 +180,11 @@ private:
 
   // Include the default reference counting implementation.
   IMPLEMENT_REFCOUNTING(PhantomJSHandler);
+
+  bool disableOSM;
+  unsigned long width;
+  unsigned long height;
+
 };
 
 #endif  // CEF_TESTS_PHANTOMJS_HANDLER_H_

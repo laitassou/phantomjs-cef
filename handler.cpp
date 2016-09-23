@@ -63,14 +63,16 @@ T takeCallback(QHash<int32, T>* callbacks, const CefRefPtr<CefBrowser>& browser)
   return takeCallback(callbacks, browser->GetIdentifier());
 }
 
-void initWindowInfo(CefWindowInfo& window_info, bool isPhantomMain)
+void initWindowInfo(CefWindowInfo& window_info, bool disOSM,  bool isPhantomMain)
 {
 #if defined(OS_WIN)
   // On Windows we need to specify certain flags that will be passed to
   // CreateWindowEx().
   window_info.SetAsPopup(NULL, "phantomjs");
 #endif
-  if (isPhantomMain || !qEnvironmentVariableIsSet("PHANTOMJS_CEF_SHOW_WINDOW")) {
+  //QDebug() <<" isphantomMain:" << isPhantomMain<<" +" <<disOSM;
+  if (isPhantomMain || disOSM ) {
+   //if (isPhantomMain || !qEnvironmentVariableIsSet("PHANTOMJS_CEF_SHOW_WINDOW")) {
     window_info.SetAsWindowless(0, true);
   }
 }
@@ -184,10 +186,13 @@ QJsonObject toJson(const CefRefPtr<CefDownloadItem>& item)
 }
 }
 
-PhantomJSHandler::PhantomJSHandler()
+PhantomJSHandler::PhantomJSHandler(bool dis, unsigned long width, unsigned long height)
     : m_messageRouter(CefMessageRouterBrowserSide::Create(messageRouterConfig()))
 {
   m_messageRouter->AddHandler(this, false);
+  disableOSM = dis;
+  this->height = height;
+  this->width  = width;
 }
 
 PhantomJSHandler::~PhantomJSHandler()
@@ -202,11 +207,15 @@ CefMessageRouterConfig PhantomJSHandler::messageRouterConfig()
   return config;
 }
 
-CefRefPtr<CefBrowser> PhantomJSHandler::createBrowser(const CefString& url, bool isPhantomMain,
+CefRefPtr<CefBrowser> PhantomJSHandler::createBrowser(const CefString& url,bool disOSM, bool isPhantomMain,
                                                       const QJsonObject& config)
 {
   CefWindowInfo window_info;
-  initWindowInfo(window_info, isPhantomMain);
+  
+  window_info.height = height; 
+  window_info.width  = width;
+
+  initWindowInfo(window_info, disOSM, isPhantomMain);
 
   CefBrowserSettings browser_settings;
   initBrowserSettings(browser_settings, isPhantomMain, config);
@@ -305,7 +314,7 @@ bool PhantomJSHandler::OnBeforePopup(CefRefPtr<CefBrowser> browser, CefRefPtr<Ce
 {
   qCDebug(handler) << browser->GetIdentifier() << frame->GetURL() << target_url << target_frame_name;
   // TODO: inherit settings? manipulate?
-  initWindowInfo(windowInfo, false);
+  initWindowInfo(windowInfo, false, false);
   initBrowserSettings(settings, false, {});
   client = this;
   // TODO: is it enough to assume the next browser that will be created belongs to this popup request?
@@ -632,7 +641,7 @@ bool PhantomJSHandler::OnQuery(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame
 
   if (type == QLatin1String("createBrowser")) {
     const auto& settings = json.value(QStringLiteral("settings")).toObject();
-    auto subBrowser = createBrowser("about:blank", false, settings);
+    auto subBrowser = createBrowser("about:blank",disableOSM, false, settings);
     auto& info = m_browsers[subBrowser->GetIdentifier()];
     info.authName = settings.value(QStringLiteral("userName")).toString().toStdString();
     info.authPassword = settings.value(QStringLiteral("password")).toString().toStdString();
@@ -773,10 +782,10 @@ bool PhantomJSHandler::OnQuery(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame
     const auto format = json.value(QStringLiteral("format")).toString();
     const auto clipRectJson = json.value(QStringLiteral("clipRect")).toObject();
     const auto clipRect = QRect(
-      clipRectJson.value(QStringLiteral("left")).toDouble(),
-      clipRectJson.value(QStringLiteral("top")).toDouble(),
-      clipRectJson.value(QStringLiteral("width")).toDouble(),
-      clipRectJson.value(QStringLiteral("height")).toDouble()
+      clipRectJson.value(QStringLiteral("left")).toInt(-1),
+      clipRectJson.value(QStringLiteral("top")).toInt(-1),
+      clipRectJson.value(QStringLiteral("width")).toInt(-1),
+      clipRectJson.value(QStringLiteral("height")).toInt(-1)
     );
     m_paintCallbacks[subBrowserId] = {path, format, clipRect, callback};
     subBrowser->GetHost()->Invalidate(PET_VIEW);
